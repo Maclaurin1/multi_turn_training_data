@@ -76,6 +76,13 @@ def question_1_complication(text):
     generated_data = _internal_model_generate(model_gpt, '1', prompt)
     return generated_data
 
+def correct_answer_prompt(origin_answer, inst, history):
+    PROMPT = get_prompt_data(r'D:\multi_turn_training_data\PROMPT', 'correct_answer')
+    prompt = PROMPT.format(origin_answer=origin_answer, inst=inst, history=history)
+    generated_data = _internal_model_generate(model_gpt, '1', prompt)
+    return generated_data
+
+
 # 后续问题的复杂化
 def question_2_complication(text, history):
     PROMPT_Deepening = get_prompt_data(r'D:\training_complicating_data\PROMPT', 'Deepening_2')
@@ -152,7 +159,7 @@ def inst_merge(inst):
                 return False
     return True
 def open_relation_number():
-    with open(r'D:\multi_turn_training_data\data\relation_8.txt', 'r', encoding='utf-8') as f:
+    with open(r'D:\multi_turn_training_data\data\relation_10.txt', 'r', encoding='utf-8') as f:
         # 读取所有行
         lines = f.readlines()
     # 处理每一行
@@ -170,7 +177,7 @@ def find_random_index(arr):
     valid_indices = []
     # 步骤2: 遍历数组
     for i, value in enumerate(arr):
-        if value == 2:
+        if value == 2 or value == 1:
             valid_indices.append(i)
             # 步骤3: 随机选择
     if valid_indices:
@@ -194,7 +201,7 @@ def choose_sample(data, number):
         if arr:
             res.append(arr)
         else:
-            return False
+            return
     return res
 
 def get_prob(n): # 计算概率分布
@@ -207,12 +214,13 @@ def get_prob(n): # 计算概率分布
     return res
 def inst_structure(text, data, func):
     text_now = copy.deepcopy(text)
-    text_now[-1]['content'] = text_now[-1]['content'] + "\n 本轮回答要求如下"
+    text_now[-1]['content'] = text_now[-1]['content'] + "\n 注意：本轮回答仅需满足以下要求，请务必忽略前几轮的要求！\n 要求如下：\n"
     for i, item in enumerate(data):
         text_now[-1]['content'] = f"{text_now[-1]['content']}\n{i + 1}. {item}"
     res = _internal_model_generate_QWEN(model_Qwen, "text", text_now)
     func_str = func
-    for item in func_str:
+    bad_case = []
+    for j, item in enumerate(func_str):
         for i, it in enumerate(item):
             exec(it[0], globals())
             # 现在 evaluate 函数已经在当前命名空间定义好了
@@ -221,27 +229,24 @@ def inst_structure(text, data, func):
             if result == True:
                 break
             elif i == len(item) - 1:
-                return res, text_now, False
+                bad_case.append(j+1)
+    if bad_case:
+        return res, text_now, False, bad_case
     return res, text_now, True
 
-def inst_right(text, data, func):
-    text_now = copy.deepcopy(text)
-    text_now[-1]['content'] = text_now[-1]['content'] + "\n 本轮回答要求如下"
-    for i, item in enumerate(data):
-        text_now[-1]['content'] = f"{text_now[-1]['content']}\n{i + 1}. {item}"
-    res = _internal_model_generate_QWEN(model_Qwen, "text", text_now)
+def inst_right(answer, func):
     func_str = func
     for item in func_str:
         for i, it in enumerate(item):
             exec(it[0], globals())
             # 现在 evaluate 函数已经在当前命名空间定义好了
             # 你可以直接调用它并传入 res 作为参数
-            result = evaluate(res)
+            result = evaluate(answer)
             if result == True:
                 break
             elif i == len(item) - 1:
                 return False
-    return res, text_now, True
+    return True
 def answer_quality(query, response):
     scores = []
     PROMPT_answer_score = get_prompt_data(r'D:\training_complicating_data\PROMPT', 'answer_score')
@@ -273,7 +278,7 @@ if __name__ == '__main__':
     user_token_gpt = '240151_aN8z2gtiudKoinIfvcwd'
     model_Qwen = QwenApi(model_url_qwen, token=user_token_qwen)
     model_gpt = GptIntApi(model_url_gpt, token=user_token_gpt)
-    with open(r'D:\multi_turn_training_data\data\cross_validation_7.jsonl', 'r', encoding='utf-8') as f:
+    with open(r'D:\multi_turn_training_data\data\cross_validation_10.jsonl', 'r', encoding='utf-8') as f:
         data_inst_structure = [json.loads(line) for line in f]
     inst = ['获取详细信息并确认', '请求详细解释和定义', '引入新元素并提出问题', '请求具体技术示例', '内容生成与优化', '聚焦核心要素与情感', '详细操作信息交流', '确保内容完整规范', '反馈与正向激励', '获取项目资金需求', '探索艺术的多样表现', '引导信息扩展与推进', '深入探讨与应用', '利用外部资源支持', '寻求优化和解决方案', '寻求详细信息和反馈', '逐层深入探讨', '优化和扩展内容', '明确需求并设定条件', '优化沟通与深入探讨', '澄清需求并寻求具体指导', '拓展与创新思维', '通过示例和反馈提升理解', '分解复杂任务', '突出机会并请求细节', '提炼并保存最终成果', '制定计划并寻求反馈', '激发对能力的思考', '集中资源达成目标', '获取详细信息', '挑战权威以获取真相', '创造性命名策略', '请求恢复先前状态', '问题解决导向对话', '情境分析与需求满足', '逐步深入探讨相关主题', '请求详细信息和背景', '明确需求并寻求详细说明', '引导轻松对话', '探索精神修行路径', '寻求全面和深入的见解', '提升交流与思维', '获取隐私相关信息', '提出新问题和解决方案', '获取详细信息和指导', '寻求解决方案与优化', '寻求学术与学习资源', '澄清需求并提供详细说明', '使用具体示例增强理解', '内容生成与优化', '探索科技公司动态', '扩展知识与视野', '生成主题相关内容', '生成营销推广内容', '寻求紧急健康援助', '验证信息的准确性', '评估方案的潜在缺陷', '促进合作与项目推广', '寻求详细信息和深入分析', '定制化解决方案与优化', '扩展与澄清信息', '明确需求并逐步指导', '资源优化与推广', '制定个性化解决方案', '制定系统化学习计划', '确保对话连贯并详细扩展', '引入新元素并扩展', '请求具体示例和实现方法', '明确需求并提出疑问', '分解任务并提供具体指导', '简化信息呈现', '请求详细解释与示例', '生成创意社交媒体内容', '优先考虑安全与舒适', '阐述项目及其意义', '寻求信息和建议', '调试和验证查询错误', '深入挖掘和扩展信息', '针对特定需求提供解决方案', '寻求信息并澄清概念', '系统化分析与具体执行', '探讨社会责任与影响', '生成优化内容建议', '营造轻松互动', '综合策略与防御', '促进合作与发展', '比较与优化策略', '寻求具体解决方案和实现方法', '请求和提供具体示例', '确保地址栏一致性', '比较区域社会文化', '分析与讨论政策', '细化内容结构', '探索新领域', '根据内容创建表格', '切换话题或回到之前话题', '重复提问以求新的回答', '代词、指示词指代或省略指代词', '生成表格数据']
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -281,7 +286,7 @@ if __name__ == '__main__':
     file_handler = logging.FileHandler('output/log', encoding='utf-8')
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     logger.addHandler(file_handler)
-    with open(r'D:\training_complicating_data\data\question.txt', 'r', encoding='utf-8') as f:
+    with open(r'D:\multi_turn_training_data\data\question.txt', 'r', encoding='utf-8') as f:
         topic = f.read()
         try:
             topics = eval(topic)
@@ -291,6 +296,8 @@ if __name__ == '__main__':
             logging.error("文件内容不是有效的Python列表格式")
             exit(1)  # 或者其他错误处理
     for i, topic in enumerate(topics):
+        if i <= 35:
+            continue
         res = []
         # 生成第一个问题
         instruction = process_question(topic)
@@ -303,7 +310,7 @@ if __name__ == '__main__':
         # print(res)
         # 开始轮次循环
         T = 0
-        round_2 = random.randint(2, 10)
+        round_2 = random.randint(2, 3)
         logging.info(f"轮次数量为: {round_2}")
         while T < round_2:
             inst_round = 1
@@ -315,15 +322,19 @@ if __name__ == '__main__':
                 inst_room = [item['instruction'] for item in data_list]
                 func = [item['eval_func'] for item in data_list]
                 m = inst_structure(res, inst_room, func)
-                if m:
-                    if answer_quality(m[0], m[1]):
-                        answer = m[0]
-                        res = m[1]
-                        logging.info(f"第{inst_round}轮次指令生成成功，指令为{inst_room}")
-                        break
-                    else:
-                        logging.info(f"第{inst_round}轮次指令生成成功，但是回答不合格，指令为{inst_room}")
-                        continue
+                a_q = answer_quality(m[0], m[1])
+                if m[2] and a_q:
+                    answer = m[0]
+                    res = m[1]
+                    logging.info(f"question_new{i + 10000000086}第{inst_round}轮次指令生成成功，指令为{inst_room}")
+                    break
+                elif a_q:
+                    logging.info(f"question_new{i + 10000000086}第{inst_round}轮次回答合理，但是指令不遵循，不遵循编号为{m[3]}")
+                    new_answer = correct_answer_prompt(m[0], inst_room, m[1])
+                    answer = new_answer
+                    res = m[1]
+                    logging.info(f"指令遵循，新回答为{new_answer}")
+                    break
                 else:
                     logging.info(f"第{inst_round}轮次指令生成失败，指令为{inst_room}")
                     inst_round += 1
@@ -366,11 +377,9 @@ if __name__ == '__main__':
                     break
             if wtf == 5:
                 break
-
-
             question = [final_inst[1]]
             I = 0
-            round_I = random.randint(8, 10)
+            round_I = random.randint(3, 5)
             while I < round_I:
                 question.append(question_2_complication(question[-1], answer))
                 if not question_is_continue(answer, question[-1]):
@@ -390,15 +399,19 @@ if __name__ == '__main__':
             inst_room = [item['instruction'] for item in data_list]
             func = [item['eval_func'] for item in data_list]
             m = inst_structure(res, inst_room, func)
-            if m:
-                if answer_quality(m[0], m[1]):
-                    answer = m[0]
-                    res = m[1]
-                    logging.info(f"第{inst_round}轮次指令生成成功，指令为{inst_room}")
-                    break
-                else:
-                    logging.info(f"第{inst_round}轮次指令生成成功，但是回答不合格，指令为{inst_room}")
-                    continue
+            a_q = answer_quality(m[0], m[1])
+            if m[2] and a_q:
+                answer = m[0]
+                res = m[1]
+                logging.info(f"question_new{i + 10000000086}第{inst_round}轮次指令生成成功，指令为{inst_room}")
+                break
+            elif a_q:
+                logging.info(f"question_new{i + 10000000086}第{inst_round}轮次回答合理，但是指令不遵循，不遵循编号为{m[3]}")
+                new_answer = correct_answer_prompt(m[0], inst_room, m[1])
+                answer = new_answer
+                res = m[1]
+                logging.info(f"指令已经遵循，新回答为{new_answer}")
+                break
             else:
                 logging.info(f"第{inst_round}轮次指令生成失败，指令为{inst_room}")
                 inst_round += 1
@@ -406,13 +419,9 @@ if __name__ == '__main__':
                     logging.info(f"该轮指令生成失败，不生成指令！！！！")
                     answer = _internal_model_generate_QWEN(model_Qwen, "text", res)
                     break
-        # 判断回答是否合理
-        #
-        #
-        # 还没做，烦死了这玩意儿
         if wtf != 5:
             res.append({"role": "assistant", "content": answer})
             logging.info(f"最后生成的回答为: {answer}")
-        with open(f'./output/question{i + 808}.json', 'w', encoding='utf-8') as f:
+        with open(f'./output/question_new{i + 10000000086}.json', 'w', encoding='utf-8') as f:
             json.dump(res, f, ensure_ascii=False, indent=4)
-        logging.info(f"结果已写入文件: ./output/question{i + 808}.json")
+        logging.info(f"结果已写入文件: ./output/question_new{i + 10000000086}.json")

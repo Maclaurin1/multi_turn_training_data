@@ -2,7 +2,7 @@ import json
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from tqdm import tqdm
-with open(r'D:\training_complicating_data\data\cross_validation_7.jsonl', 'r', encoding='utf-8') as f:
+with open(r'D:\multi_turn_training_data\data\cross_validation_10.jsonl', 'r', encoding='utf-8') as f:
     data_inst_structure = [json.loads(line)["instruction"] for line in f]
 print(data_inst_structure)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -22,6 +22,6 @@ result = [[0] * n for _ in range(n)]
 for i in tqdm(range(n)):
     for j in range(i + 1, len(data_inst_structure)):
         result[i][j] = get_label(data_inst_structure[i], data_inst_structure[j])
-with open(r'D:\training_complicating_data\data\relation_7.txt', 'w', encoding='utf-8') as f:
+with open(r'D:\multi_turn_training_data\data\relation_10.txt', 'w', encoding='utf-8') as f:
     for row in result:
         f.write('\t'.join([str(x) for x in row]) + '\n')
